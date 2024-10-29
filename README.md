@@ -64,7 +64,8 @@ For this part you want to add an argument for the main.cpp, and you want to add 
 
 ## Software Optimization
 
-In this part we want you to optimize the cache accesses in the functions.cpp. Do not modify the base functions, the functions you want to modify have a comment with "tomato" in it. The goal is to make the Total time statistic of the cache for your functions is at least half the original value in the basic cache with LRU.
+Next, we want to optimize the software (the two functions that are in functions.cpp) to have a better cache perforamnce. 
+Do not modify the base functions, the functions you want to modify have a comment with "tomato" in it. The goal is to make the Total time statistic of the cache for your functions is at least half the original value in the basic cache with LRU.
 
 ## Striding Prefetcher
 
@@ -83,3 +84,10 @@ Here we want you to collect the stats with all the options you have (replacement
 
 
 ## Grading
+
+1) Simulating a basic data cache (20%)
+2) Simulating different repacement polic (10% each)
+3) Optimizing software for better memory locality (20%)
+4) Implementing a simple data prefetcher (20%)
+5) Short Report quality (10%)
+
