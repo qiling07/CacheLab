@@ -1,4 +1,5 @@
 #include "cache.h"
+#include <random>
 
 static CacheSimulation common_sim;
 
@@ -117,6 +118,10 @@ static void prefetchFromQueue(CacheSimulation *cache)
     }
 }
 
+int getRandomWay() {
+    return rand() % 8;
+}
+
 uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
 {
     // check if a prefetch arrived
@@ -131,10 +136,11 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
         }
     }
     // align the address to 64 bytes
-    uintptr_t aligned_address = /*tomato*/ 0;
+    uintptr_t aligned_address = address & (~uintptr_t(0b111111));
 
-    uint8_t set = /*tomato*/ 0;
-    uint64_t tag = /*tomato*/ 0;
+    //52 bits tag + 6 bits set index + 6 bits block offset 
+    uint8_t set = (address >> 6) & 0b111111;
+    uint64_t tag = address >> 12;
     cache->reads++;
     bool hit = false;
     int i;
@@ -142,7 +148,7 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
     // Hint: 8 is associativity.
     for (i = 0; i < 8; i++)
     {
-        if (/*tomato*/ false)
+        if (cache->cache[set][i].valid && cache->cache[set][i].tag == tag)
         {
             hit = true;
             cache->hits++;
@@ -153,53 +159,112 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
     {
         cache->misses++;
         access_finishes = cache->current_time + 20;
-        i = 0;
+        
+        // find an empty block first
+        i = -1;
         for (int j = 0; j < 8; j++)
         {
-            if (/*tomato*/ false)
+            if (not cache->cache[set][j].valid)
             {
                 i = j;
                 break;
             }
-            /*tomato: for more sophisticated replacements modify here*/
-            // switch(cache->policy)?
-            if (/*tomato, hint: replacement */ true)
+        }
+
+        // if no empty block, find one to replace
+        if (i == -1) {
+            switch (cache->policy)
             {
-                i = j;
+            case CacheSimulation::Policy::LRU :
+                for (int j = 0; j < 8; j++) {
+                    assert(cache->cache[set][j].valid);
+                    if (cache->cache[set][j].LRU_cnt == 7) {
+                        i = j;
+                        break;
+                    }
+                }
+                assert(i != -1);
+                break;
+            case CacheSimulation::Policy::Random :
+                i = getRandomWay();
+                assert(i >= 0 && i < 8);
+                break;
+            case CacheSimulation::Policy::Tree :
+                // TODO: Tree LRU
+                break;
+            default:
+                assert(false);
             }
         }
-        /*tomato: we are getting the base pointer into the cache*/
-        // tomato: dont forget the other modifications to the block
+
+        // initialize cache the new block
         uint8_t *base_pointer = (uint8_t *)(aligned_address);
         for (int j = 0; j < 64; j++)
         {
-            // tomato: copy here
+            cache->cache[set][i].data[j] = base_pointer[j];
         }
-        // tomato: we just used this so maybe replacement policy cares about this.
+        cache->cache[set][i].tag = tag;
+        cache->cache[set][i].valid = true;
+
+        /* LRU cache hit updates START */
+        for (int j = 0; j < 8; j ++) {
+            if (j == i) {
+                cache->cache[set][j].LRU_cnt = 0;
+            } else {
+                cache->cache[set][j].LRU_cnt += 1;
+            }
+        }
+        /* LRU cache hit updates END */
+
+        // TODO: Tree LRU
     }
     else
     {
         access_finishes = cache->current_time + 1;
-        // tomato: we just used this so maybe replacement policy cares about this.
+        
+        /* LRU cache hit updates START */
+        uint8_t cur_LRU = -1;
+        for (int j = 0; j < 8; j++) {
+            if (cache->cache[set][j].valid && cache->cache[set][j].tag == tag) {
+                cur_LRU = cache->cache[set][j].LRU_cnt;
+                break;
+            }
+        }
+        assert(cur_LRU != -1);
+
+        for (int j = 0; j < 8; j++) {
+            if (cache->cache[set][j].valid) {
+                if (cache->cache[set][j].LRU_cnt == cur_LRU) {
+                    cache->cache[set][j].LRU_cnt = 0;
+                } else if (cache->cache[set][j].LRU_cnt < cur_LRU) {
+                    cache->cache[set][j].LRU_cnt += 1;
+                } else if (cache->cache[set][j].LRU_cnt > cur_LRU) {
+                    // nothing happens
+                }
+            }
+        }
+        /* LRU cache hit updates END */
+
+        // TODO: Tree LRU
     }
     return access_finishes;
 }
 
-int writeCache(CacheSimulation *cache, uintptr_t address, int value)
+uint8_t writeCacheByte(CacheSimulation *cache, uintptr_t address, uint8_t value)
 {
     // writethrough
-    *(int *)address = value;
-    // align the address to 64 bytes
-    // tomato: fill in the 0s.
-    uintptr_t aligned_address = 0;
-    uint8_t set = 0;
-    uint64_t tag = 0;
+    *(uint8_t *)address = value;
+    
+    uint8_t set = (address >> 6) & 0b111111;
+    uint64_t tag = address >> 12;
+    uint64_t offset = address & 0b111111;
+
     int i = 0;
     for (; i < 8; i++)
     {
-        if (/*tomato when do we write*/ false)
+        if (cache->cache[set][i].valid && cache->cache[set][i].tag == tag)
         {
-            // tomato: write to cache
+            cache->cache[set][i].data[offset] = value;
             return value;
         }
     }
@@ -207,8 +272,20 @@ int writeCache(CacheSimulation *cache, uintptr_t address, int value)
     assert(false);
 }
 
-void prefetchCache(CacheSimulation *cache, uintptr_t address)
+int writeCache(CacheSimulation *cache, uintptr_t address, int value)
 {
+    uint8_t *addr_ptr = (uint8_t *)address;
+    uint8_t *value_ptr = (uint8_t *)&value; 
+    // for (int i = 0; i < sizeof(int) / sizeof(uint8_t); i++) {
+    for (unsigned i = 0; i < sizeof(int) / sizeof(uint8_t); i++) {
+        assert(value_ptr[i] == writeCacheByte(cache, uintptr_t(addr_ptr + i), value_ptr[i]));
+    }
+    return value;
+}
+
+void prefetchCache(void *cache_voidptr, uintptr_t address)
+{
+    CacheSimulation *cache = reinterpret_cast<CacheSimulation*>(cache_voidptr);
     for (int i = 0; i < 32; i++)
     {
         if (cache->prefetch_queue[i].prefetch_time == UINT64_MAX)
@@ -220,8 +297,9 @@ void prefetchCache(CacheSimulation *cache, uintptr_t address)
     }
 }
 
-bool ownedByUser(CacheSimulation *cache, uintptr_t address)
+bool ownedByUser(void *cache_voidptr, uintptr_t address)
 {
+    CacheSimulation *cache = reinterpret_cast<CacheSimulation*>(cache_voidptr);
     const std::vector<int_cached_buffer *> &buffers = cache->buffers;
     for (const auto &buffer : buffers)
     {

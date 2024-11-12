@@ -11,12 +11,13 @@
 // We want an 32kB cache with 64B blocks
 // 32kB = 2^15B -> 2^15B / 64B = 2^9 blocks
 // 2^9 blocks / 8 = 2^6 sets
-// 2-way set associative
+// 8-way set associative
 struct CacheBlock
 {
     bool valid;
     uint64_t tag;
     uint8_t data[64];
+    uint8_t LRU_cnt;
     // tomato: Maybe some stats that you can keep here
 };
 struct ReplacementPolicy
@@ -32,6 +33,8 @@ struct PrefetchRequest
     uintptr_t prefetch_addr;
     uint64_t prefetch_time;
 };
+void prefetchCache(void *cache, uintptr_t address);
+bool ownedByUser(void *cache, uintptr_t address);
 struct Prefetcher
 {
     uintptr_t pointers[4] = {};
@@ -49,7 +52,7 @@ struct Prefetcher
         {
             if (pointers[i] + striding_range_upper[i] > curr_ptr && pointers[i] - striding_range_lower[i] <= curr_ptr)
             {
-                if (ownedByUser(cache_ptr, curr_ptr))
+                if (ownedByUser((void*)cache_ptr, curr_ptr))
                     return i;
             }
         }
@@ -82,7 +85,7 @@ struct Prefetcher
     }
     void prefetch_mems(int selected_stride, uintptr_t address)
     {
-        prefetchCache(cache_ptr, address + strides[selected_stride]);
+        prefetchCache((void *)cache_ptr, address + strides[selected_stride]);
         // tomato: you might want to change your pointer here.
         // you might also want to consider changing where you admit a pointer as a stride candidate.
     }
@@ -98,6 +101,8 @@ struct CacheSimulation
     enum Policy
     {
         LRU,
+        Random,
+        Tree
         // tomato: Add your replacement policy here
     };
     Policy policy = LRU;
@@ -116,8 +121,7 @@ void resetCacheStats();
 void printStats();
 uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address);
 int writeCache(CacheSimulation *cache, uintptr_t address, int value);
-void prefetchCache(CacheSimulation *cache, uintptr_t address);
-bool ownedByUser(CacheSimulation *cache, uintptr_t address);
+
 
 void initBuffer(int_cached_buffer &buffer, int elem_count);
 struct matrix_mult_args
