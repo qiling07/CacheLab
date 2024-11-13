@@ -190,7 +190,21 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
                 assert(i >= 0 && i < 8);
                 break;
             case CacheSimulation::Policy::Tree :
-                // TODO: Tree LRU
+                i = 0;
+                // printf("%d ", i);
+                while (i < 7) {
+                    if (cache->treeLRUs[set][i] == false) {
+                        cache->treeLRUs[set][i] = true;
+                        i = 2 * i + 1;
+                    } else {
+                        cache->treeLRUs[set][i] = false;
+                        i = 2 * i + 2;
+                    }
+                    // printf("-> %d ", i);
+                }
+                // printf("\n");
+                i = i - 7;
+                assert(i >= 0 && i <= 7);
                 break;
             default:
                 assert(false);
@@ -215,8 +229,6 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
             }
         }
         /* LRU cache hit updates END */
-
-        // TODO: Tree LRU
     }
     else
     {
@@ -244,8 +256,6 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
             }
         }
         /* LRU cache hit updates END */
-
-        // TODO: Tree LRU
     }
     return access_finishes;
 }

@@ -98,6 +98,11 @@ struct CacheSimulation
     int reads = 0;
     uint64_t current_time = 0;
     CacheBlock cache[64][8] = {};
+    //            0
+    //        1       2
+    //      3   4   5   6 
+    //     x x x x x x x x
+    bool treeLRUs[64][7] = {};
     enum Policy
     {
         LRU,
