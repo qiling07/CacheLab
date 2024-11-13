@@ -1,0 +1,38 @@
+You selected 'lru'.
+Prefetcher enabled.
+Base Convolution Stats:
+Hit rate: 0.992108
+Miss rate: 0.00789155
+Total time: 6419220
+Number of usefull prefetches: 26883
+Number of wasted prefetches: 126337
+Ratio of wasted/all prefetches : 0.824546
+Ratio of prefetched hits/all hits : 0.241179
+=======================
+Your Convolution Stats:
+Hit rate: 0.998147
+Miss rate: 0.00185328
+Total time: 142515
+Number of usefull prefetches: 0
+Number of wasted prefetches: 0
+Ratio of wasted/all prefetches : -nan
+Ratio of prefetched hits/all hits : 0.249166
+=======================
+Base Matrix Multiplication Stats:
+Hit rate: 0.748967
+Miss rate: 0.251033
+Total time: 336855040
+Number of usefull prefetches: 1028342
+Number of wasted prefetches: 17036350
+Ratio of wasted/all prefetches : 0.943074
+Ratio of prefetched hits/all hits : 0.327033
+=================================
+Your Matrix Multiplication Stats:
+Hit rate: 0.997335
+Miss rate: 0.00266495
+Total time: 19179923
+Number of usefull prefetches: 9006
+Number of wasted prefetches: 118994
+Ratio of wasted/all prefetches : 0.929641
+Ratio of prefetched hits/all hits : 0.287176
+=================================

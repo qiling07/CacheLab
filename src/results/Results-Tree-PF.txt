@@ -1,0 +1,38 @@
+You selected 'tree'.
+Prefetcher enabled.
+Base Convolution Stats:
+Hit rate: 0.992047
+Miss rate: 0.00795261
+Total time: 6437536
+Number of usefull prefetches: 27994
+Number of wasted prefetches: 126218
+Ratio of wasted/all prefetches : 0.818471
+Ratio of prefetched hits/all hits : 0.231174
+=======================
+Your Convolution Stats:
+Hit rate: 0.998121
+Miss rate: 0.00187938
+Total time: 142705
+Number of usefull prefetches: 0
+Number of wasted prefetches: 0
+Ratio of wasted/all prefetches : -nan
+Ratio of prefetched hits/all hits : 0.0319495
+=======================
+Base Matrix Multiplication Stats:
+Hit rate: 0.739248
+Miss rate: 0.260752
+Total time: 336855040
+Number of usefull prefetches: 1028285
+Number of wasted prefetches: 17035406
+Ratio of wasted/all prefetches : 0.943074
+Ratio of prefetched hits/all hits : 0.32129
+=================================
+Your Matrix Multiplication Stats:
+Hit rate: 0.997638
+Miss rate: 0.00236208
+Total time: 18923366
+Number of usefull prefetches: 9054
+Number of wasted prefetches: 118466
+Ratio of wasted/all prefetches : 0.928999
+Ratio of prefetched hits/all hits : 0.287007
+=================================

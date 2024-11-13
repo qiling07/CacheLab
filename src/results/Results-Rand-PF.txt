@@ -1,0 +1,38 @@
+You selected 'rand'.
+Prefetcher enabled.
+Base Convolution Stats:
+Hit rate: 0.989975
+Miss rate: 0.0100254
+Total time: 7018689
+Number of usefull prefetches: 36104
+Number of wasted prefetches: 149284
+Ratio of wasted/all prefetches : 0.805252
+Ratio of prefetched hits/all hits : 0.228048
+=======================
+Your Convolution Stats:
+Hit rate: 0.997771
+Miss rate: 0.00222915
+Total time: 145080
+Number of usefull prefetches: 0
+Number of wasted prefetches: 0
+Ratio of wasted/all prefetches : -nan
+Ratio of prefetched hits/all hits : 0.0263492
+=======================
+Base Matrix Multiplication Stats:
+Hit rate: 0.739901
+Miss rate: 0.260099
+Total time: 336802847
+Number of usefull prefetches: 1026088
+Number of wasted prefetches: 17087425
+Ratio of wasted/all prefetches : 0.943352
+Ratio of prefetched hits/all hits : 0.320705
+=================================
+Your Matrix Multiplication Stats:
+Hit rate: 0.996059
+Miss rate: 0.00394131
+Total time: 20245405
+Number of usefull prefetches: 7696
+Number of wasted prefetches: 198333
+Ratio of wasted/all prefetches : 0.962646
+Ratio of prefetched hits/all hits : 0.23516
+=================================
