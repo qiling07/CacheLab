@@ -19,6 +19,8 @@ struct CacheBlock
     uint8_t data[64];
     uint8_t LRU_cnt;
     // tomato: Maybe some stats that you can keep here
+    bool isPrefetched = false;
+    bool isNewPrefetched = false;
 };
 struct ReplacementPolicy
 {
@@ -42,46 +44,51 @@ struct Prefetcher
     int collect_counter = 0;
     int collection_index = 0;
     int current_stride_to_manipulate = 0;
-    uint64_t strides[4] = {};
+    uint64_t strides[4] = {64, 0, 0, 0};
     int64_t striding_range_upper[4] = {};
     int64_t striding_range_lower[4] = {};
     CacheSimulation *cache_ptr;
     int condition_function(uintptr_t curr_ptr)
     {
-        for (int i = 0; i < 4; i++)
-        {
-            if (pointers[i] + striding_range_upper[i] > curr_ptr && pointers[i] - striding_range_lower[i] <= curr_ptr)
-            {
-                if (ownedByUser((void*)cache_ptr, curr_ptr))
-                    return i;
-            }
-        }
-        return -1;
+        if (ownedByUser((void*) cache_ptr, curr_ptr)) return 0;
+        else return -1;
+
+        // for (int i = 0; i < 4; i++)
+        // {
+        //     if (pointers[i] + striding_range_upper[i] > curr_ptr && pointers[i] - striding_range_lower[i] <= curr_ptr)
+        //     {
+        //         if (ownedByUser((void*)cache_ptr, curr_ptr))
+        //             return i;
+        //     }
+        // }
+        // return -1;
     }
     void collect_and_update(uintptr_t curr_ptr)
     {
+        return;
+
         // tomato: with this we find finds the state to trigger prefetches on
         // collect some pointers and compare them to see if they are similar
         // is there a striding pattern that we can use here?
 
         // collect once in n accesses, you can change 15 to change n >= 15 (always in 2^x-1)
-        collect_counter = (collect_counter + 1) & 15;
-        if (!collect_counter)
-        {
-            // you can collect this pointer here, manipulate strides and pointers
-            collection[collection_index] = curr_ptr;
-            collection_index = (collection_index + 1) & 15;
-            // tomato: from here figure out if any of your pointers or strides need changing
+        // collect_counter = (collect_counter + 1) & 15;
+        // if (!collect_counter)
+        // {
+        //     // you can collect this pointer here, manipulate strides and pointers
+        //     collection[collection_index] = curr_ptr;
+        //     collection_index = (collection_index + 1) & 15;
+        //     // tomato: from here figure out if any of your pointers or strides need changing
 
-            // HINT: see if the collections are within some range
-            // how common is this access within the range?
-            // can you use the range to pick a good stride value?
+        //     // HINT: see if the collections are within some range
+        //     // how common is this access within the range?
+        //     // can you use the range to pick a good stride value?
 
-            // Strides are counted in block sized increments in our case 32kB
+        //     // Strides are counted in block sized increments in our case 32kB
 
-            // if a stride is ready to be used you can increment
-            // current_stride_to_manipulate = (current_stride_to_manipulate + 1) & 3;
-        }
+        //     // if a stride is ready to be used you can increment
+        //     // current_stride_to_manipulate = (current_stride_to_manipulate + 1) & 3;
+        // }
     }
     void prefetch_mems(int selected_stride, uintptr_t address)
     {
@@ -108,12 +115,17 @@ struct CacheSimulation
         LRU,
         Random,
         Tree
-        // tomato: Add your replacement policy here
     };
     Policy policy = LRU;
     ReplacementPolicy replacement_policy[64] = {};
     PrefetchRequest prefetch_queue[32] = {};
     Prefetcher prefetcher;
+    
+    int all_pf = 0;
+    int hits_pf = 0;
+    int useful_pf = 0;
+    
+
     bool prefetch_enabled = false;
     // tomato: you could aggregate some stats here.
     int prefetch_index = 0;

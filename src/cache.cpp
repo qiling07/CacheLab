@@ -10,6 +10,9 @@ static void initCache(CacheSimulation *cache)
     cache->misses = 0;
     cache->reads = 0;
     cache->prefetch_index = 0;
+    cache->all_pf = 0;
+    cache->hits_pf = 0;
+    cache->useful_pf = 0;
     cache->buffers.clear();
     cache->buffers.reserve(16);
     for (auto &set : cache->cache)
@@ -53,6 +56,10 @@ void resetCacheStats()
     common_sim.misses = 0;
     common_sim.reads = 0;
     common_sim.current_time = 0;
+
+    common_sim.hits_pf = 0;
+    common_sim.useful_pf = 0;
+    common_sim.all_pf = 0;
 }
 void printStats()
 {
@@ -61,14 +68,20 @@ void printStats()
     std::cout << "Total time: " << common_sim.current_time << std::endl;
     // Add prefetcher stats:
     // prefetched blocks that were useful
-    std::cout << "Number of usefull prefetches: " << "tomato" << std::endl;
+    std::cout << "Number of usefull prefetches: " << common_sim.useful_pf << std::endl;
     // prefetched blocks that were not used before eviction
-    std::cout << "Number of wasted prefetches: " << "tomato" << std::endl;
+    std::cout << "Number of wasted prefetches: " << common_sim.all_pf - common_sim.useful_pf<< std::endl;
     // ratio : unused prefetches/all preefetches
-    std::cout << "Ratio of wasted/all prefetches : " << "tomato" << std::endl;
+    std::cout << "Ratio of wasted/all prefetches : " << (double)(common_sim.all_pf - common_sim.useful_pf) / common_sim.all_pf << std::endl;
     // ratio : prefetched hits/all hits
-    std::cout << "Ratio of prefetched hits/all hits : " << "tomato" << std::endl;
+    std::cout << "Ratio of prefetched hits/all hits : " << (double)common_sim.hits_pf / common_sim.hits << std::endl;
 }
+
+
+int getRandomWay() {
+    return rand() % 8;
+}
+
 static void prefetchFromQueue(CacheSimulation *cache)
 {
     for (int i = 0; i < 32; i++)
@@ -76,50 +89,90 @@ static void prefetchFromQueue(CacheSimulation *cache)
         if (cache->prefetch_queue[i].prefetch_time < cache->current_time)
         {
             cache->prefetch_queue[i].prefetch_time = UINT64_MAX;
-            // tomato: we want to prefetch here
-            uintptr_t aligned_address = /*tomato*/ 0;
 
-            uint8_t set = /*tomato*/ 0;
-            uint64_t tag = /*tomato*/ 0;
+            uintptr_t aligned_address = cache->prefetch_queue[i].prefetch_addr & (~uintptr_t(0b111111));
+            uint8_t set = (cache->prefetch_queue[i].prefetch_addr >> 6) & 0b111111;
+            uint64_t tag = cache->prefetch_queue[i].prefetch_addr >> 12;
+
             int i = 0;
-            int block = 0;
+            int block = -1;
             bool hit = false;
             for (; i < 8; i++)
             {
-                if (false /*tomato replace this false*/)
+                if (cache->cache[set][i].valid && cache->cache[set][i].tag == tag)
                 {
                     hit = true;
                     break;
                 }
-                if (!/*tomato replace this true*/ true)
+                if (not cache->cache[set][i].valid)
                 {
                     block = i;
                     break;
                 }
-                /*tomato: take into account your replacement policy.*/
-                // switch(cache->policy)?
-                if (/*tomato replace this*/ true)
+            }
+
+            if (not hit && block == -1) {
+                switch (cache->policy)
                 {
-                    block = i;
+                case CacheSimulation::Policy::LRU :
+                    for (int j = 0; j < 8; j++) {
+                        assert(cache->cache[set][j].valid);
+                        if (cache->cache[set][j].LRU_cnt == 7) {
+                            block = j;
+                            break;
+                        }
+                    }
+                    break;
+                case CacheSimulation::Policy::Random :
+                    block = getRandomWay();
+                    break;
+                case CacheSimulation::Policy::Tree :
+                    block = 0;
+                    while (block < 7) {
+                        if (cache->treeLRUs[set][block] == false) {
+                            cache->treeLRUs[set][block] = true;
+                            block = 2 * block + 1;
+                        } else {
+                            cache->treeLRUs[set][block] = false;
+                            block = 2 * block + 2;
+                        }
+                    }
+                    block = block - 7;
+                    break;
+                default:
+                    assert(false);
                 }
             }
-            if (!hit)
+            
+            
+
+            if (not hit)
             {
-                /*tomato: we are getting the base pointer into the cache*/
-                // tomato: dont forget the other modifications to the block
+                assert(block >= 0 && block < 8);
+                cache->all_pf++;
+
                 uint8_t *base_pointer = (uint8_t *)(aligned_address);
                 for (int j = 0; j < 64; j++)
                 {
-                    // tomato: copy here
+                    cache->cache[set][block].data[j] = base_pointer[j];
                 }
-                // tomato: what to do with replacement bits?
+                cache->cache[set][block].tag = tag;
+                cache->cache[set][block].valid = true;
+                cache->cache[set][block].isPrefetched = true;
+                cache->cache[set][block].isNewPrefetched = true;
+
+                /* LRU cache hit updates START */
+                for (int j = 0; j < 8; j ++) {
+                    if (j == block) {
+                        cache->cache[set][j].LRU_cnt = 0;
+                    } else {
+                        cache->cache[set][j].LRU_cnt += 1;
+                    }
+                }
+                /* LRU cache hit updates END */
             }
         }
     }
-}
-
-int getRandomWay() {
-    return rand() % 8;
 }
 
 uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
@@ -152,6 +205,13 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
         {
             hit = true;
             cache->hits++;
+            if (cache->cache[set][i].isPrefetched) {
+                cache->hits_pf++;
+            }
+            if (cache->cache[set][i].isNewPrefetched) {
+                cache->useful_pf++;
+                cache->cache[set][i].isNewPrefetched = false;
+            }
             break;
         }
     }
@@ -219,6 +279,8 @@ uint64_t cacheAddress(CacheSimulation *cache, uintptr_t address)
         }
         cache->cache[set][i].tag = tag;
         cache->cache[set][i].valid = true;
+        cache->cache[set][i].isPrefetched = false;
+        cache->cache[set][i].isNewPrefetched = false;
 
         /* LRU cache hit updates START */
         for (int j = 0; j < 8; j ++) {
